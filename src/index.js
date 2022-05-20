@@ -4,10 +4,12 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { expressjwt: jwt } = require('express-jwt');
+const jwks = require('jwks-rsa');
 
-const { startDatabase } = require('./database/mongo');
-const { insertAd, getAds } = require('./database/ads');
-const { deleteAd, updateAd } = require('./database/ads');
+const { startDatabase } = require('../database/mongo');
+const { insertAd, getAds } = require('../database/ads');
+const { deleteAd, updateAd } = require('../database/ads');
 
 // defining the Express app
 const app = express();
@@ -33,6 +35,22 @@ app.get('/', async (req, res) => {
 startDatabase().then(async () => {
     await insertAd({ title: 'Hello, now from the in-memory database!' })
 });
+
+//Anything defined before app.use(checkJwt) is not authenticated/secured
+const jwtCheck = jwt({
+    secret: jwks.expressJwtSecret({
+        cache: true,
+        rateLimit: true,
+        jwksRequestsPerMinute: 5,
+        jwksUri: 'https://dev-zvflvmkl.us.auth0.com/.well-known/jwks.json'
+    }),
+    audience: 'https://ads-api',
+    issuer: 'https://dev-zvflvmkl.us.auth0.com/',
+    algorithms: ['RS256']
+}
+);
+
+app.use(jwtCheck); // secure subsquent endpoints by checking jwt 
 
 app.post('/', async (req, res) => {
     const newAd = req.body;
